@@ -1,0 +1,10 @@
+numpy
+pandas
+scikit-learn
+matplotlib
+scipy
+joblib
+python-dateutil
+six
+threadpoolctl
+tzdata

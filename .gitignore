@@ -1,0 +1,24 @@
+# Virtual Environments
+.venv/
+my_venv/
+dev/
+venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Results (Optional: keep if you want to share them)
+# data/raw/
+# data/processed/
+# results/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
