@@ -66,5 +66,8 @@ La organización del repositorio es la siguiente:
   - GA básico para evolución de cadenas (`genetic_algorithm.py`).
   - GWO básico para funciones matemáticas (`gwo_math.py`).
 
-## Autor
-[GalekTato](https://github.com/GalekTato)
+## Autores
+[Gael Askary Razo Montañez](https://github.com/GalekTato)
+[Alejandro Hernández Hernández](https://github.com/coloronthewalls)
+[Isaac Aguilar Durán](https://github.com/isaacwide)
+[José Ángel Cambranis Sánchez](https://github.com/Jose-Angel-Sanchez)
