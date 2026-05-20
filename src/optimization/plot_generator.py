@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
+from pathlib import Path
 
 # Configuración Estética
 sns.set_theme(style="whitegrid")
@@ -18,24 +19,27 @@ COLORS = {
     'danger': '#d62728', 'alpha': '#d62728', 'beta': '#3182bd', 'delta': '#31a354'
 }
 
-def load_data(base_path: str = ".") -> tuple:
-    hist_path = os.path.join(base_path, 'results/history')
-    rep_path = os.path.join(base_path, 'results/reports')
-    
-    if not os.path.exists(hist_path):
-        hist_path = '../../results/history'
-        rep_path = '../../results/reports'
-        
-    ga_df = pd.read_csv(os.path.join(hist_path, 'ga_gwo_history.csv'))
-    ga_pop_df = pd.read_csv(os.path.join(hist_path, 'ga_population_history.csv'))
-    gwo_df = pd.read_csv(os.path.join(hist_path, 'gwo_wolves_history.csv'))
-    eval_df = pd.read_csv(os.path.join(hist_path, 'all_evaluated_individuals.csv'))
-    
-    with open(os.path.join(rep_path, 'final_metrics.json'), 'r') as f:
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RESULTS_HISTORY_DIR = PROJECT_ROOT / 'results' / 'history'
+RESULTS_REPORTS_DIR = PROJECT_ROOT / 'results' / 'reports'
+PLOTS_GA_DIR = PROJECT_ROOT / 'plots' / 'ga'
+PLOTS_GWO_DIR = PROJECT_ROOT / 'plots' / 'gwo'
+PLOTS_MODEL_DIR = PROJECT_ROOT / 'plots' / 'model'
+
+def load_data() -> tuple:
+    hist_path = RESULTS_HISTORY_DIR
+    rep_path = RESULTS_REPORTS_DIR
+
+    ga_df = pd.read_csv(hist_path / 'ga_gwo_history.csv')
+    ga_pop_df = pd.read_csv(hist_path / 'ga_population_history.csv')
+    gwo_df = pd.read_csv(hist_path / 'gwo_wolves_history.csv')
+    eval_df = pd.read_csv(hist_path / 'all_evaluated_individuals.csv')
+
+    with open(rep_path / 'final_metrics.json', 'r') as f:
         metrics = json.load(f)
-        
-    y_train = pd.read_csv(os.path.join(hist_path, '../../data/processed/y_train.csv')).squeeze()
-    y_test = pd.read_csv(os.path.join(hist_path, '../../data/processed/y_test.csv')).squeeze()
+
+    y_train = pd.read_csv(PROJECT_ROOT / 'data' / 'processed' / 'y_train.csv').squeeze()
+    y_test = pd.read_csv(PROJECT_ROOT / 'data' / 'processed' / 'y_test.csv').squeeze()
         
     return ga_df, ga_pop_df, gwo_df, eval_df, metrics, y_train, y_test
 
@@ -57,12 +61,24 @@ def plot_ga_evolution(ga_df: pd.DataFrame, save_path: str):
 
 def plot_ga_population_boxplot(ga_pop_df: pd.DataFrame, save_path: str):
     plt.figure(figsize=(8, 5))
-    sns.boxplot(x='generation', y='fitness', data=ga_pop_df, palette='Set3')
+    sns.boxplot(x='generation', y='fitness', data=ga_pop_df, color='#9ecae1')
     plt.title('Distribución de Aptitud por Generación')
     plt.xlabel('Generación')
     plt.ylabel('F1-Score')
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, 'ga_population_boxplot.png'))
+    plt.close()
+
+def plot_ga_population_size(ga_pop_df: pd.DataFrame, save_path: str):
+    counts = ga_pop_df.groupby('generation').size().reset_index(name='population_size')
+    plt.figure(figsize=(8, 4))
+    plt.plot(counts['generation'], counts['population_size'], color=COLORS['secondary'], marker='o')
+    plt.title('Tamaño de la Población GA por Generación')
+    plt.xlabel('Generación')
+    plt.ylabel('Número de individuos evaluados')
+    plt.ylim(0, max(counts['population_size'].max() + 1, 1))
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'ga_population_size.png'))
     plt.close()
 
 def plot_ga_diversity(ga_df: pd.DataFrame, save_path: str):
@@ -215,7 +231,7 @@ def plot_mlp_architecture(metrics: dict, save_path: str):
         
         for idx, (x, y) in enumerate(node_coords[i]):
             if i == 0 and idx == 4:
-                ax.text(x, y, "$\cdot$\n$\cdot$\n$\cdot$", ha='center', va='center', fontsize=20, color=color, zorder=5)
+                ax.text(x, y, "$\\cdot$\n$\\cdot$\n$\\cdot$", ha='center', va='center', fontsize=20, color=color, zorder=5)
             else:
                 circle = plt.Circle((x, y), 0.015, color=color, zorder=4, ec='white', lw=1.5)
                 ax.add_artist(circle)
@@ -319,39 +335,38 @@ def plot_hybrid_evolution_timeline(ga_df: pd.DataFrame, gwo_df: pd.DataFrame, sa
     plt.close()
 
 def main():
-    base_dir = '../..' if os.path.exists('../../results') else '.'
-    
     # Crear carpetas si no existen
-    os.makedirs(f'{base_dir}/plots/ga', exist_ok=True)
-    os.makedirs(f'{base_dir}/plots/gwo', exist_ok=True)
-    os.makedirs(f'{base_dir}/plots/model', exist_ok=True)
+    PLOTS_GA_DIR.mkdir(parents=True, exist_ok=True)
+    PLOTS_GWO_DIR.mkdir(parents=True, exist_ok=True)
+    PLOTS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Cargando datos para generar 14 gráficas...")
-    ga_df, ga_pop_df, gwo_df, eval_df, metrics, y_train, y_test = load_data(base_dir)
+    print("Cargando datos para generar 15 gráficas...")
+    ga_df, ga_pop_df, gwo_df, eval_df, metrics, y_train, y_test = load_data()
     
     # GA
-    plot_ga_evolution(ga_df, f'{base_dir}/plots/ga')
-    plot_ga_population_boxplot(ga_pop_df, f'{base_dir}/plots/ga')
-    plot_ga_diversity(ga_df, f'{base_dir}/plots/ga')
-    plot_ga_hyperparameter_heatmap(eval_df, f'{base_dir}/plots/ga')
+    plot_ga_evolution(ga_df, str(PLOTS_GA_DIR))
+    plot_ga_population_boxplot(ga_pop_df, str(PLOTS_GA_DIR))
+    plot_ga_population_size(ga_pop_df, str(PLOTS_GA_DIR))
+    plot_ga_diversity(ga_df, str(PLOTS_GA_DIR))
+    plot_ga_hyperparameter_heatmap(eval_df, str(PLOTS_GA_DIR))
     
     # GWO
     if not gwo_df.empty:
-        plot_gwo_convergence(gwo_df, f'{base_dir}/plots/gwo')
-        plot_gwo_position_spread(gwo_df, f'{base_dir}/plots/gwo')
-        plot_gwo_stats_table(gwo_df, f'{base_dir}/plots/gwo')
+        plot_gwo_convergence(gwo_df, str(PLOTS_GWO_DIR))
+        plot_gwo_position_spread(gwo_df, str(PLOTS_GWO_DIR))
+        plot_gwo_stats_table(gwo_df, str(PLOTS_GWO_DIR))
         
     # MODEL
-    plot_confusion_matrix(metrics, f'{base_dir}/plots/model')
-    plot_classification_report(metrics, f'{base_dir}/plots/model')
-    plot_cross_validation(metrics, f'{base_dir}/plots/model')
-    plot_train_test_class_distribution(y_train, y_test, f'{base_dir}/plots/model')
-    plot_mlp_architecture(metrics, f'{base_dir}/plots/model')
-    plot_perceptron_diagram(f'{base_dir}/plots/model')
-    plot_hybrid_evolution_timeline(ga_df, gwo_df, f'{base_dir}/plots/model')
+    plot_confusion_matrix(metrics, str(PLOTS_MODEL_DIR))
+    plot_classification_report(metrics, str(PLOTS_MODEL_DIR))
+    plot_cross_validation(metrics, str(PLOTS_MODEL_DIR))
+    plot_train_test_class_distribution(y_train, y_test, str(PLOTS_MODEL_DIR))
+    plot_mlp_architecture(metrics, str(PLOTS_MODEL_DIR))
+    plot_perceptron_diagram(str(PLOTS_MODEL_DIR))
+    plot_hybrid_evolution_timeline(ga_df, gwo_df, str(PLOTS_MODEL_DIR))
     
     print("==================================================")
-    print(f"Todas las 14 gráficas han sido generadas en {base_dir}/plots/")
+    print(f"Todas las gráficas han sido generadas en {PROJECT_ROOT / 'plots'}")
     print("==================================================")
 
 if __name__ == '__main__':
