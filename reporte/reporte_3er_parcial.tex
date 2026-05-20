@@ -244,7 +244,26 @@ Evaluar Fitness($P_{0}$) con validación cruzada $K$-fold mediante MultiProcessi
 El proyecto está diseñado bajo un paradigma \textit{pipeline} con inyección de dependencias paralelizadas.
 
 \subsection{Flujo de Datos y Preprocesamiento}
-La variable continua se convierte a una etiqueta multiclase. Se eliminan registros atípicos (aquellos por encima del 60\% de NaNs). Se aplica una imputación de la Mediana. El escalamiento final (\texttt{StandardScaler}) se aplica en una canalización (Pipeline) durante la evaluación para prevenir toda filtración de datos de prueba (\textit{target leakage}).
+La variable objetivo \texttt{koi\_disposition} se transforma a tres clases enteras: \texttt{CONFIRMED}=0, \texttt{CANDIDATE}=1 y \texttt{FALSE POSITIVE}=2. Sobre el conjunto original se eliminan columnas identificadoras e irrelevantes, se descartan variables con más del 40\% de datos faltantes y posteriormente se imputan los valores perdidos con la mediana de cada atributo numérico.
+
+La división entre entrenamiento y prueba se realiza de forma aleatoria pero estratificada con \texttt{train\_test\_split(test\_size=0.2, stratify=y, random\_state=42)}, de modo que la proporción de clases se conserva en ambos subconjuntos y no se introduce un desbalance severo.
+
+Sobre \(X_{train}\) se toma además un subconjunto estratificado del 25\% para la búsqueda de hiperparámetros; de esta forma, el GA+GWO explora una muestra representativa y el modelo final se entrena después con todo el conjunto de entrenamiento disponible.
+
+\begin{table}[H]
+    \centering
+    \caption{Distribución estratificada de clases en los conjuntos de entrenamiento y prueba}
+    \label{tab:split_distribution}
+    \begin{tabular}{@{}lrrrr@{}}
+        \toprule
+        \textbf{Conjunto} & \textbf{Total} & \textbf{CONFIRMED} & \textbf{CANDIDATE} & \textbf{FALSE POSITIVE} \\ \midrule
+        Train & 7651 & 1834 (23.97\%) & 1799 (23.51\%) & 4018 (52.52\%) \\
+        Test  & 1913 & 459 (23.99\%) & 449 (23.47\%) & 1005 (52.54\%) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+El escalamiento final con \texttt{StandardScaler} se encapsula dentro de una \texttt{Pipeline} tanto en la evaluación por validación cruzada como en el entrenamiento final del MLP. Esto evita filtración de información del conjunto de prueba y garantiza que la normalización se aprenda exclusivamente a partir de \(X_{train}\).
 
 La fórmula de normalización utilizada (\texttt{StandardScaler}) se define como:
 \[
@@ -259,7 +278,7 @@ La justificación matemática para preferir la imputación por la mediana frente
 \]
 
 \subsection{Concurrencia y Multiprocesamiento (CPU Parallelism)}
-Para reducir drásticamente los tiempos computacionales ($O(P \times K_{folds} \times \text{MLP})$), la evaluación de la aptitud dentro del GA y del GWO fue paralelizada utilizando la biblioteca nativa \texttt{multiprocessing}.
+Para reducir drásticamente los tiempos computacionales, la evaluación de la aptitud dentro del GA y del GWO se paralelizó con \texttt{multiprocessing.Pool}. Cada individuo codifica un MLP y su fitness se calcula mediante validación cruzada estratificada de 5 pliegues, mientras que el paralelismo se aplica al nivel de población y no al nivel interno de cada validación, evitando sobrecarga innecesaria.
 
 \begin{lstlisting}
 from multiprocessing import Pool, cpu_count
@@ -306,12 +325,12 @@ En la máquina de experimentación, el multiprocesamiento utilizó todos los nú
     \caption{Mantenimiento de la diversidad genética y Mapa de Calor del espacio.}
 \end{figure}
 
-Como puede observarse en la gráfica evolutiva, el fitness máximo crece paulatinamente logrando estabilidad asintótica sin converger prematuramente, gracias a que la desviación estándar de la población no llega a cero sino que oscila activamente a través de las generaciones debido a la fuerte presión mutacional.
+Como puede observarse en la gráfica evolutiva, el fitness máximo crece desde 0.8809 en la generación 1 hasta 0.8950 en la generación 4. Al mismo tiempo, la media poblacional pasa de 0.6996 a 0.8832 y la desviación estándar cae de 0.2694 a 0.0072, lo que indica una convergencia muy rápida hacia una región de alta aptitud.
 
-El análisis de la Figura 4 revela patrones críticos en el comportamiento del optimizador. En primer lugar, la diversidad genética (desviación estándar) cae abruptamente después de la segunda generación para luego estabilizarse cerca de cero, lo que indica que el GA encontró tempranamente una fuerte cuenca de atracción (\textit{attractor basin}) en el espacio de búsqueda continuo. Por otro lado, el mapa de calor de hiperparámetros demuestra que la activación \texttt{logistic} (sigmoide) colapsa hacia un F1 de $\sim 0.36$ en arquitecturas profundas como (32, 16) y (64, 32). Esto se explica matemáticamente por el fenómeno de desvanecimiento de gradientes (\textit{vanishing gradients}): dado que la derivada de la sigmoide está estrictamente acotada por $\sigma'(z) = \sigma(z)(1-\sigma(z)) \leq 0.25$, el encadenamiento de múltiples capas multiplica estos gradientes pequeños provocando un decaimiento exponencial durante el \textit{backpropagation}. En contraste, las activaciones \texttt{relu} y \texttt{tanh} mantienen un rendimiento consistente por encima de 0.86 en todas las arquitecturas, siendo \texttt{relu} la más estable en general. Finalmente, se observa que arquitecturas de una sola capa oculta, tales como (8,), (16,), (32,) y (64,), rinden de manera comparable a las topologías más profundas. Esto sugiere empíricamente que el dataset de Kepler no requiere una representación altamente no lineal o profunda para extraer la frontera de decisión óptima en este problema de clasificación espacial.
+El boxplot de población confirma esa compresión progresiva de la dispersión. Una vez detectada la mejor cuenca de búsqueda, la presión selectiva y el elitismo reducen la variabilidad entre individuos y el algoritmo termina por \textit{early stopping} cuando ya no aparecen mejoras significativas. El mapa de calor de hiperparámetros muestra que la mejor configuración no requiere una arquitectura profunda: la solución seleccionada fue una red de una sola capa oculta con 8 neuronas y activación \texttt{tanh}, con una tasa de aprendizaje inicial de 0.0395 y una penalización L2 de aproximadamente 0.0736.
 
 \subsection{Convergencia del Grey Wolf Optimizer (GWO)}
-La explotación se realizó mediante el GWO introduciendo una pequeña perturbación gaussiana inicial en las réplicas del top élite. Esto obligó a la manada a evaluar el espacio vecino inmediato de manera intensiva.
+La explotación local se realizó mediante el GWO sobre los mejores individuos heredados del GA. La perturbación inicial de la manada permitió explorar el vecindario inmediato del óptimo encontrado por la fase evolutiva y medir si existía una mejora real por refinamiento continuo.
 
 \begin{figure}[H]
     \centering
@@ -325,7 +344,7 @@ La explotación se realizó mediante el GWO introduciendo una pequeña perturbac
     \caption{Convergencia de los lobos líderes y métricas estadísticas finales.}
 \end{figure}
 
-El GWO cumple su función matemática excelentemente: la aptitud (\textit{F1-score}) de los líderes (Alfa, Beta y Delta) mejora o se condensa hasta tocar un techo algorítmico local tras unas pocas iteraciones continuas.
+Los resultados muestran dos fases claras de explotación. En la generación 3, el lobo alfa evoluciona desde 0.8835 hasta 0.8914 a lo largo de 25 iteraciones, mientras que la dispersión de la manada disminuye de 0.5502 a 0.0554. En la generación 6, el alfa parte de 0.8950 y se mantiene prácticamente en ese valor, pero beta y delta siguen ajustando su aptitud y la dispersión baja de 0.3925 a 0.0506. Esto indica que el GWO ya no está buscando globalmente, sino consolidando una cuenca prometedora detectada por el GA.
 
 Las ecuaciones de paso hacia adelante (\textit{forward pass}) del MLP para la arquitectura óptima encontrada se definen como:
 \[
@@ -358,7 +377,7 @@ y_{ik} \log(\hat{y}_{ik})
     \caption{Cronología del híbrido. Las líneas rojas indican la inyección del GWO.}
 \end{figure}
 
-La cronología demuestra el comportamiento de cooperación inter-algorítmica: el GA domina la exploración y en los puntos marcados con líneas punteadas el GWO refina el parámetro del mejor individuo hallado.
+La cronología demuestra el comportamiento de cooperación inter-algorítmica: el GA domina la exploración y, cuando detecta una región estable, el GWO refina el mejor individuo sin destruir la estructura global de la población. En otras palabras, el GA localiza la cuenca y el GWO termina de compactarla.
 
 \subsection{Evaluación del Modelo Final}
 El MLPClassifier con la mejor configuración se entrenó sobre los datos completos.
@@ -375,7 +394,7 @@ El MLPClassifier con la mejor configuración se entrenó sobre los datos complet
     \caption{Matriz de confusión y Reporte de Clasificación del modelo.}
 \end{figure}
 
-El modelo logra diferenciar correctamente la clase predominante de falso positivo frente a exoplanetas confirmados, logrando una efectividad cruzada sumamente robusta sin rastro de sobreajuste (\textit{overfitting}) debido al control del hiperparámetro L2 (Alpha).
+El modelo logra diferenciar correctamente la clase predominante de falso positivo frente a exoplanetas confirmados. La brecha entre entrenamiento y prueba es mínima: 0.8998 contra 0.8981 en exactitud, lo que sugiere generalización estable y ausencia de sobreajuste severo.
 
 Las métricas de Precisión ($P_c$), Exhaustividad/Recall ($R_c$) y F1-Score ($F1_c$) se definen a partir de la matriz de confusión como:
 \[
@@ -385,10 +404,27 @@ F1_c = \frac{2 P_c R_c}{P_c + R_c}
 
 De acuerdo con los valores exactos arrojados por el modelo en el conjunto de prueba, obtenemos el siguiente desglose:
 \begin{itemize}
-    \item \textbf{CONFIRMED:} $TP=390$, $FP=102+1=103$, $FN=65+4=69$
-    \item \textbf{CANDIDATE:} $TP=344$, $FP=65+20=85$, $FN=102+3=105$
-    \item \textbf{FALSE POSITIVE:} $TP=984$, $FP=4+3=7$, $FN=1+20=21$
+    \item \textbf{CONFIRMED:} $TP=390$, $FP=103$, $FN=69$, $F1=0.8193$
+    \item \textbf{CANDIDATE:} $TP=344$, $FP=85$, $FN=105$, $F1=0.7836$
+    \item \textbf{FALSE POSITIVE:} $TP=984$, $FP=7$, $FN=21$, $F1=0.9860$
 \end{itemize}
+
+\begin{table}[H]
+    \centering
+    \caption{Resumen estadístico del modelo final sobre el conjunto de prueba}
+    \label{tab:final_metrics}
+    \begin{tabular}{@{}lc@{}}
+        \toprule
+        \textbf{Métrica} & \textbf{Valor} \\ \midrule
+        Accuracy train & 0.8998 \\
+        Accuracy test & 0.8981 \\
+        F1 weighted test & 0.8985 \\
+        F1 macro test & 0.8630 \\
+        Mejor generación del GA & 4 \\
+        Criterio de paro & Early stopping \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 El F1-Score ponderado global resulta ser:
 \[

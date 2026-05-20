@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
@@ -28,18 +29,24 @@ Class distribution: CONFIRMED ~24%, CANDIDATE ~24%, FALSE POSITIVE ~52%
 =============================================================================
 """
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_RAW_DIR = PROJECT_ROOT / 'data' / 'raw'
+DATA_PROCESSED_DIR = PROJECT_ROOT / 'data' / 'processed'
+PLOTS_MODEL_DIR = PROJECT_ROOT / 'plots' / 'model'
+
 def load_and_preprocess():
     print("Iniciando carga y preprocesamiento de NASA Kepler Exoplanet Search Results...")
     
     data_paths = [
-        '../../data/raw/cumulative.csv',
-        'data/raw/cumulative.csv',
-        'cumulative.csv'
+        DATA_RAW_DIR / 'cumulative.csv',
+        PROJECT_ROOT / 'data' / 'raw' / 'cumulative.csv',
+        Path('data/raw/cumulative.csv'),
+        Path('cumulative.csv')
     ]
     
     df = None
     for path in data_paths:
-        if os.path.exists(path):
+        if path.exists():
             df = pd.read_csv(path)
             break
             
@@ -121,26 +128,21 @@ def load_and_preprocess():
     plt.suptitle('Histogramas de Descriptores Numéricos del Dataset Kepler (Z-Score)', fontsize=16, weight='bold')
     plt.tight_layout()
     
-    plots_dir = '../../plots/model'
-    if not os.path.exists('../../data/processed'):  # ajustando la ruta para cuando se corre local
-        plots_dir = 'plots/model'
-        
-    os.makedirs(plots_dir, exist_ok=True)
-    plt.savefig(os.path.join(plots_dir, 'descriptores_histogram.png'), dpi=150)
+    plots_dir = PLOTS_MODEL_DIR
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    plt.savefig(plots_dir / 'descriptores_histogram.png', dpi=150)
     plt.close()
-    print(f"Gráfica guardada en {plots_dir}/descriptores_histogram.png")
+    print(f"Gráfica guardada en {plots_dir / 'descriptores_histogram.png'}")
     # ---------------------------------------------------------
 
     # Guardar CSVs
-    proc_dir = '../../data/processed'
-    if not os.path.exists('../../data/raw'):
-        proc_dir = 'data/processed'
-    os.makedirs(proc_dir, exist_ok=True)
+    proc_dir = DATA_PROCESSED_DIR
+    proc_dir.mkdir(parents=True, exist_ok=True)
     
-    X_train_scaled.to_csv(os.path.join(proc_dir, 'X_train.csv'), index=False)
-    X_test_scaled.to_csv(os.path.join(proc_dir, 'X_test.csv'), index=False)
-    y_train.to_csv(os.path.join(proc_dir, 'y_train.csv'), index=False)
-    y_test.to_csv(os.path.join(proc_dir, 'y_test.csv'), index=False)
+    X_train_scaled.to_csv(proc_dir / 'X_train.csv', index=False)
+    X_test_scaled.to_csv(proc_dir / 'X_test.csv', index=False)
+    y_train.to_csv(proc_dir / 'y_train.csv', index=False)
+    y_test.to_csv(proc_dir / 'y_test.csv', index=False)
     
     print("Datos preprocesados guardados correctamente.")
     return X_train_scaled, X_test_scaled, y_train, y_test

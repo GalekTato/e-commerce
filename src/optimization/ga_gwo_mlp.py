@@ -10,6 +10,13 @@ from multiprocessing import Pool, cpu_count
 import time
 import os
 import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PREPROCESSING_DIR = PROJECT_ROOT / 'src' / 'preprocessing'
+DATA_PROCESSED_DIR = PROJECT_ROOT / 'data' / 'processed'
+RESULTS_HISTORY_DIR = PROJECT_ROOT / 'results' / 'history'
+RESULTS_REPORTS_DIR = PROJECT_ROOT / 'results' / 'reports'
 
 # --- CONFIGURACIÓN DE HIPERPARÁMETROS DEL OPTIMIZADOR ---
 N_JOBS = cpu_count()
@@ -344,8 +351,7 @@ def run_ga_gwo(X_search: pd.DataFrame, y_search: pd.Series, seed: int):
 
 def main() -> None:
     print("Cargando y procesando NASA Kepler Exoplanet Search Results...", flush=True)
-    import sys
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'preprocessing')))
+    sys.path.append(str(PREPROCESSING_DIR))
     try:
         from data_cleaning import load_and_preprocess
         X_train, X_test, y_train, y_test = load_and_preprocess()
@@ -355,12 +361,13 @@ def main() -> None:
     except Exception as e:
         print(f"Error al cargar/preprocesar: {e}")
         # Si falla cargará de CSV local
-        train_x_path = '../../data/processed/X_train.csv'
-        if not os.path.exists(train_x_path): train_x_path = 'data/processed/X_train.csv'
+        train_x_path = DATA_PROCESSED_DIR / 'X_train.csv'
+        if not train_x_path.exists():
+            train_x_path = PROJECT_ROOT / 'data' / 'processed' / 'X_train.csv'
         X_train = pd.read_csv(train_x_path)
-        X_test = pd.read_csv(train_x_path.replace('X_train', 'X_test'))
-        y_train = pd.read_csv(train_x_path.replace('X_train', 'y_train')).squeeze()
-        y_test = pd.read_csv(train_x_path.replace('X_train', 'y_test')).squeeze()
+        X_test = pd.read_csv(train_x_path.with_name('X_test.csv'))
+        y_train = pd.read_csv(train_x_path.with_name('y_train.csv')).squeeze()
+        y_test = pd.read_csv(train_x_path.with_name('y_test.csv')).squeeze()
 
     print(f"Creando subconjunto estratificado del 25% para optimización de hiperparámetros...", flush=True)
     _, X_search, _, y_search = train_test_split(
@@ -373,18 +380,16 @@ def main() -> None:
     best_params, ga_history_df, gwo_history_df, best_gen, early_stopped, ga_pop_history, evaluated_df = run_ga_gwo(X_search, y_search, SEED)      
 
     # Directorio de resultados
-    base_res_dir = '../../results'
-    if not os.path.exists('../../data'): base_res_dir = 'results'
-    
-    os.makedirs(f'{base_res_dir}/history', exist_ok=True)
-    os.makedirs(f'{base_res_dir}/reports', exist_ok=True)
+    base_res_dir = PROJECT_ROOT / 'results'
+    RESULTS_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    RESULTS_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    ga_history_df.to_csv(f'{base_res_dir}/history/ga_gwo_history.csv', index=False)
-    ga_pop_history.to_csv(f'{base_res_dir}/history/ga_population_history.csv', index=False)
-    evaluated_df.to_csv(f'{base_res_dir}/history/all_evaluated_individuals.csv', index=False)
+    ga_history_df.to_csv(RESULTS_HISTORY_DIR / 'ga_gwo_history.csv', index=False)
+    ga_pop_history.to_csv(RESULTS_HISTORY_DIR / 'ga_population_history.csv', index=False)
+    evaluated_df.to_csv(RESULTS_HISTORY_DIR / 'all_evaluated_individuals.csv', index=False)
 
     if len(gwo_history_df) > 0:
-        gwo_history_df.to_csv(f'{base_res_dir}/history/gwo_wolves_history.csv', index=False)
+        gwo_history_df.to_csv(RESULTS_HISTORY_DIR / 'gwo_wolves_history.csv', index=False)
         
     # --- ENTRENAMIENTO FINAL SOBRE DATASET COMPLETO ---
     print(f"\nEntrenando clasificador MLP final con los mejores parámetros sobre el dataset completo ({len(X_train)} muestras)...", flush=True)
@@ -419,7 +424,7 @@ def main() -> None:
     }
 
     import json
-    with open(f'{base_res_dir}/reports/final_metrics.json', 'w') as f:
+    with open(RESULTS_REPORTS_DIR / 'final_metrics.json', 'w') as f:
         json.dump(test_metrics, f, indent=4)
         
     print("\n========================================")
