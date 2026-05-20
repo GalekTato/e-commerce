@@ -1,24 +1,34 @@
-# Virtual Environments
-.venv/
+# Ambientes virtuales
 my_venv/
-dev/
 venv/
-ENV/
+env/
+.env
 
-# Python Cache
+# Archivos de caché y compilación
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
 
-# Data & Results (Optional: keep if you want to share them)
-# data/raw/
-# data/processed/
-# results/
+# Resultados y gráficos generados dinámicamente
+plots/
+results/
+resultados/
 
-# IDEs
+# Archivos procesados 
+data/processed/
+
+# Archivos auxiliares de LaTeX
+reporte/*.aux
+reporte/*.log
+reporte/*.out
+reporte/*.toc
+reporte/*.synctex.gz
+reporte/*.fls
+reporte/*.fdb_latexmk
+
+# VS Code / IDEs
 .vscode/
 .idea/
-
-# OS files
-.DS_Store
-Thumbs.db
+*.swp

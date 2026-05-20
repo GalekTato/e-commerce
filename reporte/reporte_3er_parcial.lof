@@ -1,0 +1,10 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {figure}{\numberline {1}{\ignorespaces Distribución de clases balanceada entre conjuntos de entrenamiento y prueba.}}{4}{figure.caption.5}%
+\contentsline {figure}{\numberline {2}{\ignorespaces Histogramas de la puntuación Z de características numéricas clave del Dataset Kepler.}}{5}{figure.caption.6}%
+\contentsline {figure}{\numberline {3}{\ignorespaces Curvas evolutivas y distribución de caja del Fitness por Generación.}}{8}{figure.caption.8}%
+\contentsline {figure}{\numberline {4}{\ignorespaces Mantenimiento de la diversidad genética y Mapa de Calor del espacio.}}{9}{figure.caption.9}%
+\contentsline {figure}{\numberline {5}{\ignorespaces Convergencia de los lobos líderes y métricas estadísticas finales.}}{10}{figure.caption.10}%
+\contentsline {figure}{\numberline {6}{\ignorespaces Cronología del híbrido. Las líneas rojas indican la inyección del GWO.}}{11}{figure.caption.11}%
+\contentsline {figure}{\numberline {7}{\ignorespaces Matriz de confusión y Reporte de Clasificación del modelo.}}{11}{figure.caption.12}%
+\contentsline {figure}{\numberline {8}{\ignorespaces Puntuación de los Pliegues ($K=5$) y desviación estándar del mejor modelo.}}{12}{figure.caption.13}%
+\contentsline {figure}{\numberline {9}{\ignorespaces Representación abstracta del MLP multicapa optimizado (izq) y esquema matemático de un nodo Perceptrón base (der).}}{12}{figure.caption.14}%

@@ -2,51 +2,48 @@
 REPORTE DE OPTIMIZACIÓN HÍBRIDA GA-GWO PARA MLPCLASSIFIER
 ========================================================
 
-1. RESUMEN DE EJECUCIÓN (PASO A PASO)
+1. RESUMEN DE EJECUCIÓN (CON DATOS LIMPIOS Y SIN TARGET LEAKAGE)
 --------------------------------------------------------
-A. Lectura y Corrección de Datos:
-   El script leyó el archivo 'dataset_listo_para_rna.csv' (6001 filas y 29 columnas). Durante la ejecución se detectó que la columna 'Supplier ID' contenía texto (strings) que impedía las operaciones matemáticas de la Red Neuronal, por lo que fue eliminada en tiempo de ejecución.
+A. Carga de Datos:
+   Se cargaron directamente las particiones limpias preparadas por 'data_cleaning.py'.
+   Se eliminó toda variable con target leakage (como 'Popularity Index').
+   
+B. Estructuración del Split Equilibrado:
+   - Train (Entrenamiento Completo): 7651 muestras.
+   - Búsqueda (Subset Estratificado): 1913 muestras (25% de train).
+   - Test (Prueba Inédita): 1913 muestras.
+   - Proporciones estratificadas de clases mantenidas al 100%.
 
-B. Partición Equilibrada (Stratified Split):
-   Se dividieron los datos usando una proporción 80/20, resultando en:
-   - Train (Entrenamiento): 4800 muestras.
-   - Test (Prueba): 1201 muestras.
-   Se utilizó el parámetro 'stratify=y' para mantener proporciones idénticas de las clases:
-   - Train: 1611 (clase 1), 1598 (clase 0), 1591 (clase 2).
-   - Test: 403 (clase 1), 400 (clase 0), 398 (clase 2).
-   Esto garantizó un aprendizaje sin sesgos poblacionales.
+C. Motor Híbrido GA-GWO Acelerado:
+   - Genético (GA): Población de 12 individuos por 12 generaciones máximas.
+   - Grey Wolf (GWO): Búsqueda local de 4 lobos élite con 8 iteraciones locales cada K=3 generaciones.
+   - Validación: K=5 Stratified Cross-Validation en el subset de búsqueda de 1913 muestras.
 
-C. Búsqueda GA-GWO (Motor Híbrido):
-   - Algoritmo Genético (GA): Exploró combinaciones amplias de hiperparámetros (topologías de 1 a 3 capas, distintas activaciones).
-   - Grey Wolf Optimizer (GWO): Tomó periódicamente a los mejores individuos del GA e hizo ajustes matemáticos finos sobre valores continuos (como la tasa de aprendizaje y regularización L2).
-   - El proceso se evaluó usando Validación Cruzada (CV de 3 pliegues) estrictamente sobre el set de entrenamiento.
+D. Evaluación Final:
+   Una vez identificada la mejor configuración de hiperparámetros, se entrenó la red final 
+   sobre las 7651 muestras completas y se evaluó sobre el conjunto inédito de 1913 muestras.
 
-D. Entrenamiento Final:
-   Una vez identificada la mejor configuración, se instanció el MLPClassifier final, se entrenó con todas las 4800 muestras y se evaluó con los 1201 datos de prueba inéditos.
-
-
-2. ANÁLISIS DE LOS RESULTADOS Y HIPERPARÁMETROS
+2. ANÁLISIS DE RESULTADOS E HIPERPARÁMETROS GANADORES
 --------------------------------------------------------
-A. Hiperparámetros Ganadores:
-   - hidden_layer_sizes : (32,)
-   - activation         : logistic
-   - learning_rate_init : 0.031428808908401065
-   - alpha              : 0.0024810409748678096
-   - max_iter           : 200
+Hiperparámetros Óptimos Encontrados:
+- hidden_layer_sizes : (16,)
+- activation         : relu
+- learning_rate_init : 0.027938
+- alpha              : 0.650406
+- max_iter           : 500
 
-   * Conclusión Arquitectónica: El optimizador descubrió que la complejidad no era necesaria. En lugar de arquitecturas profundas, bastó una red pequeña de una sola capa con 32 neuronas. Redes más grandes probablemente causaban sobreajuste (overfitting).
-   * Conclusión de Activación: Se seleccionó 'logistic' (curva sigmoide) en vez de 'relu', indicando que la separación entre clases tiene bordes suaves y continuos.
-   * Conclusión de Aprendizaje: Una tasa alta (~0.03) sugiere que el espacio del problema es amigable y permite una convergencia rápida sin desestabilizar la función de pérdida.
+Desempeño del MLP Óptimo (Inédito Test Set):
+- Accuracy General   : 88.2384%
+- F1-Score Ponderado : 88.2586%
 
-B. Rendimiento del Modelo (Test Set):
-   - Accuracy General   : 98.00%
-   - F1-Score Ponderado : 97.99%
+Reporte de Clasificación Completo:
+              precision    recall  f1-score   support
 
-   Desglose por Clases:
-   - Clase 0 (Baja Popularidad/Rotación lenta) : 98% de precisión (F1: 0.9839)
-   - Clase 1 (Popularidad Moderada)            : 97% de precisión (F1: 0.9698)
-   - Clase 2 (Alta Popularidad/Estrella)       : 99% de precisión (F1: 0.9862)
+           0       0.75      0.86      0.80       459
+           1       0.78      0.70      0.74       449
+           2       0.99      0.97      0.98      1005
 
-3. CONCLUSIÓN FINAL
---------------------------------------------------------
-El preprocesamiento aplicado (Z-Score y variables Dummy) preparó los datos de forma tan eficiente que el modelo híbrido GA-GWO logró encontrar una configuración minimalista (una capa de 32 neuronas) capaz de alcanzar un 98% de precisión sobre datos no vistos. Queda demostrado que la optimización híbrida fue exitosa para evitar redes sobre-dimensionadas y encontrar un punto óptimo de altísima generalización.
+    accuracy                           0.88      1913
+   macro avg       0.84      0.85      0.84      1913
+weighted avg       0.89      0.88      0.88      1913
+
